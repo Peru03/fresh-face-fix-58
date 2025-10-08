@@ -1,20 +1,69 @@
-import { useState } from "react";
-import { User, Mail, Globe, DollarSign, Lock, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Mail, DollarSign, Lock, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { fetchUserProfile, updateUserProfile } from "@/store/slices/authSlice";
+import { toast } from "@/hooks/use-toast";
 
 const Profile = () => {
+  const dispatch = useAppDispatch();
+  const { user, profile: userProfile, isLoading } = useAppSelector((state) => state.auth);
   const [activeTab, setActiveTab] = useState("profile");
+  
+  const [profile, setProfile] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    budget: "",
+    savingsGoal: "",
+  });
+
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchUserProfile());
+    }
+  }, [dispatch, user]);
+
+  useEffect(() => {
+    if (userProfile) {
+      setProfile({
+        name: userProfile.name || "",
+        email: user?.email || "",
+        phone: userProfile.phone || "",
+        location: userProfile.location || "",
+        budget: userProfile.budget?.toString() || "",
+        savingsGoal: userProfile.savingsGoal?.toString() || "",
+      });
+    }
+  }, [userProfile, user]);
+
+  const handleSave = async () => {
+    try {
+      await dispatch(updateUserProfile({
+        name: profile.name,
+        phone: profile.phone,
+        location: profile.location,
+        budget: parseFloat(profile.budget) || undefined,
+        savingsGoal: parseFloat(profile.savingsGoal) || undefined,
+      })).unwrap();
+      toast({ title: "Profile updated successfully!" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error, variant: "destructive" });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Loading profile...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -47,7 +96,7 @@ const Profile = () => {
               {/* Avatar */}
               <div className="flex items-center space-x-4">
                 <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground text-2xl font-bold shadow-glow-primary">
-                  JD
+                  {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div>
                   <Button variant="outline" size="sm" className="border-border">
@@ -69,7 +118,8 @@ const Profile = () => {
                   <Input
                     id="name"
                     type="text"
-                    defaultValue="John Doe"
+                    value={profile.name}
+                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                     className="pl-10 bg-background/50 border-border"
                   />
                 </div>
@@ -85,7 +135,7 @@ const Profile = () => {
                   <Input
                     id="email"
                     type="email"
-                    defaultValue="john.doe@example.com"
+                    value={profile.email}
                     className="pl-10 bg-background/50 border-border"
                     disabled
                   />
@@ -93,23 +143,34 @@ const Profile = () => {
                 <p className="text-xs text-muted-foreground">Email cannot be changed</p>
               </div>
 
-              {/* Currency */}
+              {/* Phone */}
               <div className="space-y-2">
-                <Label htmlFor="currency" className="text-sm font-medium">
-                  Currency
+                <Label htmlFor="phone" className="text-sm font-medium">
+                  Phone Number
                 </Label>
-                <Select defaultValue="usd">
-                  <SelectTrigger className="bg-background/50 border-border">
-                    <Globe className="w-5 h-5 mr-2 text-muted-foreground" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="usd">USD ($)</SelectItem>
-                    <SelectItem value="eur">EUR (€)</SelectItem>
-                    <SelectItem value="gbp">GBP (£)</SelectItem>
-                    <SelectItem value="jpy">JPY (¥)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={profile.phone}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  className="bg-background/50 border-border"
+                  placeholder="+1 (555) 123-4567"
+                />
+              </div>
+
+              {/* Location */}
+              <div className="space-y-2">
+                <Label htmlFor="location" className="text-sm font-medium">
+                  Location
+                </Label>
+                <Input
+                  id="location"
+                  type="text"
+                  value={profile.location}
+                  onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                  className="bg-background/50 border-border"
+                  placeholder="City, Country"
+                />
               </div>
 
               {/* Monthly Budget */}
@@ -122,13 +183,34 @@ const Profile = () => {
                   <Input
                     id="budget"
                     type="number"
-                    defaultValue="2000"
+                    value={profile.budget}
+                    onChange={(e) => setProfile({ ...profile, budget: e.target.value })}
                     className="pl-10 bg-background/50 border-border"
                   />
                 </div>
               </div>
 
-              <Button className="w-full bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90">
+              {/* Savings Goal */}
+              <div className="space-y-2">
+                <Label htmlFor="savingsGoal" className="text-sm font-medium">
+                  Savings Goal
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="savingsGoal"
+                    type="number"
+                    value={profile.savingsGoal}
+                    onChange={(e) => setProfile({ ...profile, savingsGoal: e.target.value })}
+                    className="pl-10 bg-background/50 border-border"
+                  />
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleSave}
+                className="w-full bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90"
+              >
                 <Save className="w-4 h-4 mr-2" />
                 Save Changes
               </Button>

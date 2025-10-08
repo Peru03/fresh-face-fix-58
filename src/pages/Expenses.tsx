@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { Plus, Search, Filter, Calendar, DollarSign, Tag } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Calendar, DollarSign, Tag } from "lucide-react";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { fetchExpenses } from "@/store/slices/expenseSlice";
+import { AddExpenseDialog } from "@/components/AddExpenseDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,51 +15,18 @@ import {
 } from "@/components/ui/select";
 
 const Expenses = () => {
+  const dispatch = useAppDispatch();
+  const { expenses, isLoading, currentPage } = useAppSelector((state) => state.expenses);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  const expenses = [
-    {
-      id: 1,
-      description: "Whole Foods Market",
-      amount: 125.50,
-      category: "Food",
-      date: "2025-10-07",
-      hasReceipt: true,
-    },
-    {
-      id: 2,
-      description: "Netflix Subscription",
-      amount: 15.99,
-      category: "Entertainment",
-      date: "2025-10-06",
-      hasReceipt: false,
-    },
-    {
-      id: 3,
-      description: "Shell Gas Station",
-      amount: 45.00,
-      category: "Transport",
-      date: "2025-10-05",
-      hasReceipt: true,
-    },
-    {
-      id: 4,
-      description: "Amazon Purchase",
-      amount: 89.99,
-      category: "Shopping",
-      date: "2025-10-04",
-      hasReceipt: true,
-    },
-    {
-      id: 5,
-      description: "Restaurant La Bella",
-      amount: 67.30,
-      category: "Food",
-      date: "2025-10-03",
-      hasReceipt: true,
-    },
-  ];
+  useEffect(() => {
+    dispatch(fetchExpenses({ 
+      page: currentPage, 
+      category: selectedCategory !== "all" ? selectedCategory : undefined,
+      search: searchQuery || undefined 
+    }));
+  }, [dispatch, currentPage, selectedCategory, searchQuery]);
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -66,10 +36,7 @@ const Expenses = () => {
           <h1 className="text-4xl font-bold text-foreground mb-2">Expenses</h1>
           <p className="text-muted-foreground">Track and manage your spending</p>
         </div>
-        <Button className="bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Expense
-        </Button>
+        <AddExpenseDialog />
       </div>
 
       {/* Filters */}
@@ -112,7 +79,12 @@ const Expenses = () => {
 
       {/* Expenses List */}
       <div className="space-y-4">
-        {expenses.map((expense) => (
+        {isLoading ? (
+          <p className="text-center text-muted-foreground py-8">Loading expenses...</p>
+        ) : expenses.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">No expenses found. Add your first expense!</p>
+        ) : (
+          expenses.map((expense) => (
           <Card
             key={expense.id}
             className="border-border hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
@@ -160,7 +132,8 @@ const Expenses = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Pagination */}

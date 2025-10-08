@@ -1,14 +1,37 @@
-import { useState } from "react";
-import { Sparkles, Camera, MessageSquare, TrendingUp, Upload, Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Sparkles, Camera, MessageSquare, TrendingUp, Upload, Send, Brain, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { sendChatMessage, addUserMessage, fetchAIInsights } from "@/store/slices/aiSlice";
 
 const AIFeatures = () => {
-  const [activeTab, setActiveTab] = useState("receipt");
+  const dispatch = useAppDispatch();
+  const { chatMessages, insights, isProcessing } = useAppSelector((state) => state.ai);
+  const [activeTab, setActiveTab] = useState("chat");
   const [chatMessage, setChatMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    dispatch(fetchAIInsights());
+  }, [dispatch]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim() || isProcessing) return;
+    
+    dispatch(addUserMessage(chatMessage));
+    const message = chatMessage;
+    setChatMessage("");
+    
+    await dispatch(sendChatMessage(message));
+  };
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
@@ -108,36 +131,31 @@ const AIFeatures = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
-                <h3 className="text-lg font-semibold text-foreground mb-3">
-                  💡 This Month's Insights
-                </h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <span className="text-success mr-2">✓</span>
-                    <span className="text-foreground">
-                      You're spending <strong>15% less</strong> on dining out compared to last month
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-warning mr-2">⚠</span>
-                    <span className="text-foreground">
-                      Transport costs are <strong>20% above</strong> your monthly average
-                    </span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-success mr-2">✓</span>
-                    <span className="text-foreground">
-                      You're on track to save <strong>$350</strong> this month
-                    </span>
-                  </li>
-                </ul>
-              </div>
-
-              <Button className="w-full bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90">
-                <Sparkles className="w-4 h-4 mr-2" />
-                Get Personalized Advice
-              </Button>
+              {insights.length > 0 ? (
+                <div className="space-y-4">
+                  {insights.map((insight) => (
+                    <div key={insight.id} className={`p-6 rounded-xl border ${
+                      insight.type === 'saving' ? 'bg-success/10 border-success/20' :
+                      insight.type === 'warning' ? 'bg-warning/10 border-warning/20' :
+                      insight.type === 'prediction' ? 'bg-primary/10 border-primary/20' : 
+                      'bg-accent/10 border-accent/20'
+                    }`}>
+                      <div className="flex items-center space-x-3 mb-2">
+                        {insight.type === 'saving' && <Sparkles className="w-5 h-5 text-success" />}
+                        {insight.type === 'warning' && <Lightbulb className="w-5 h-5 text-warning" />}
+                        {insight.type === 'prediction' && <TrendingUp className="w-5 h-5 text-primary" />}
+                        {insight.type === 'recommendation' && <Brain className="w-5 h-5 text-accent" />}
+                        <h3 className="text-lg font-semibold text-foreground">{insight.title}</h3>
+                      </div>
+                      <p className="text-foreground">{insight.description}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 text-center">
+                  <p className="text-muted-foreground">No insights available yet. Add more expenses to get personalized financial advice!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -155,27 +173,31 @@ const AIFeatures = () => {
               <div className="space-y-4">
                 {/* Chat History */}
                 <div className="h-96 overflow-y-auto space-y-4 p-4 bg-secondary/20 rounded-xl">
-                  <div className="flex justify-start">
-                    <div className="bg-card border border-border rounded-2xl rounded-tl-sm p-4 max-w-xs">
-                      <p className="text-sm text-foreground">
-                        Hello! I'm your AI financial assistant. Ask me anything about your expenses!
-                      </p>
+                  {chatMessages.length === 0 && (
+                    <div className="text-center text-muted-foreground py-8">
+                      <Brain className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>Ask me anything about your finances!</p>
                     </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <div className="bg-gradient-primary rounded-2xl rounded-tr-sm p-4 max-w-xs">
-                      <p className="text-sm text-primary-foreground">
-                        How much did I spend on food this month?
-                      </p>
+                  )}
+                  {chatMessages.map((message) => (
+                    <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`rounded-2xl p-4 max-w-xs ${
+                        message.role === 'user' 
+                          ? 'bg-gradient-primary text-primary-foreground rounded-tr-sm' 
+                          : 'bg-card border border-border text-foreground rounded-tl-sm'
+                      }`}>
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex justify-start">
-                    <div className="bg-card border border-border rounded-2xl rounded-tl-sm p-4 max-w-xs">
-                      <p className="text-sm text-foreground">
-                        You've spent <strong>$450</strong> on food this month, which is 18% of your total expenses.
-                      </p>
+                  ))}
+                  {isProcessing && (
+                    <div className="flex justify-start">
+                      <div className="bg-card border border-border rounded-2xl rounded-tl-sm p-4 max-w-xs">
+                        <p className="text-sm text-muted-foreground">Thinking...</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input */}
@@ -184,9 +206,15 @@ const AIFeatures = () => {
                     placeholder="Ask about your spending, budgets, or financial goals..."
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                     className="min-h-[60px] bg-background/50 border-border"
+                    disabled={isProcessing}
                   />
-                  <Button className="bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90">
+                  <Button 
+                    onClick={handleSendMessage}
+                    disabled={isProcessing || !chatMessage.trim()}
+                    className="bg-gradient-primary text-primary-foreground shadow-glow-primary hover:opacity-90"
+                  >
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>

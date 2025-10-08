@@ -1,9 +1,27 @@
+import { useEffect } from "react";
 import { DollarSign, TrendingUp, Receipt, Calendar, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useAppDispatch, useAppSelector } from "@/store";
+import { fetchDashboardData } from "@/store/slices/dashboardSlice";
 
 const Dashboard = () => {
-  const stats = [
+  const dispatch = useAppDispatch();
+  const { stats, recentExpenses, isLoading } = useAppSelector((state) => state.dashboard);
+
+  useEffect(() => {
+    dispatch(fetchDashboardData());
+  }, [dispatch]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  const defaultStats = [
     {
       title: "Total Spent",
       value: "$12,450.00",
@@ -38,7 +56,8 @@ const Dashboard = () => {
     },
   ];
 
-  const recentExpenses = [
+  const displayStats = Array.isArray(stats) ? stats : defaultStats;
+  const displayExpenses = recentExpenses || [
     { id: 1, description: "Grocery Shopping", amount: -125.50, category: "Food", date: "Today" },
     { id: 2, description: "Netflix Subscription", amount: -15.99, category: "Entertainment", date: "Yesterday" },
     { id: 3, description: "Gas Station", amount: -45.00, category: "Transport", date: "2 days ago" },
@@ -60,7 +79,7 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {displayStats.map((stat) => {
           const Icon = stat.icon;
           return (
             <Card
@@ -116,7 +135,7 @@ const Dashboard = () => {
             <CardTitle className="text-foreground">Recent Expenses</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentExpenses.map((expense) => (
+            {displayExpenses.map((expense) => (
               <div
                 key={expense.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"

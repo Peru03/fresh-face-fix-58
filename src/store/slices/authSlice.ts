@@ -10,6 +10,7 @@ interface User {
 
 interface AuthState {
   user: User | null;
+  profile: any;
   token: string | null;
   isLoading: boolean;
   error: string | null;
@@ -18,6 +19,7 @@ interface AuthState {
 
 const initialState: AuthState = {
   user: null,
+  profile: null,
   token: localStorage.getItem('auth_token'),
   isLoading: false,
   error: null,
@@ -25,6 +27,30 @@ const initialState: AuthState = {
 };
 
 // Async thunks
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/user/profile');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch profile');
+    }
+  }
+);
+
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (profileData: any, { rejectWithValue }) => {
+    try {
+      const response = await axios.put('/user/profile', profileData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
+    }
+  }
+);
+
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
@@ -129,6 +155,15 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.token = null;
       localStorage.removeItem('auth_token');
+    });
+    // Fetch user profile
+    builder.addCase(fetchUserProfile.fulfilled, (state, action) => {
+      state.profile = action.payload;
+    });
+
+    // Update user profile
+    builder.addCase(updateUserProfile.fulfilled, (state, action) => {
+      state.profile = action.payload;
     });
   },
 });
